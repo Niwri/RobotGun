@@ -2,11 +2,15 @@ package com.example.robotgun;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PointF;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.DisplayMetrics;
@@ -63,6 +67,8 @@ public class MainActivity extends AppCompatActivity {
     ;
     private static final int CAMERA_REQUEST_CODE = 10;
 
+    private float currentAngle;
+
     private DetectionTaskCallback<List<FaceMesh>> faceMeshCallBack;
     private ImageCapture imageCapture;
     private ActivityMainBinding viewBinding;
@@ -75,6 +81,9 @@ public class MainActivity extends AppCompatActivity {
     private boolean shouldRun, shouldRunDistract, shouldRunFace, shouldRunPhone;
     private Preview preview;
     private ImageView imgFace;
+
+    private float fieldOfViewAngle = 32.61924f*2;
+    private float awayDistance = 0.5f; //meters
 
     @Nullable
 
@@ -90,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
 
         viewBinding = ActivityMainBinding.inflate(getLayoutInflater());
 
+        permissionStuff();
         if (!allPermissionsGranted()) {
             requestPermission();
         }
@@ -158,6 +168,16 @@ public class MainActivity extends AppCompatActivity {
         thread.start();
         threadTwo.start();
 
+        BluetoothManager bluetoothManager = getSystemService(BluetoothManager.class);
+        BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
+        if (bluetoothAdapter == null) {
+            // Device doesn't support Bluetooth
+        }
+
+        if (!bluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        }
     }
 
     private Runnable timerRunnable = new Runnable() {
@@ -287,13 +307,18 @@ public class MainActivity extends AppCompatActivity {
                             y+=face.getBoundingBox().centerY();
                         }
 
+
                         x=x*metrics.widthPixels/inputImage.getWidth();
                         y=y*metrics.heightPixels/inputImage.getHeight();
 
                         imgFace.setX((int)x - imgFace.getWidth()/2);
                         imgFace.setY((int)y - imgFace.getHeight()/2);
 
+                        currentAngle = translatePositionToAngle((int)x - imgFace.getWidth()/2, metrics.widthPixels);
+
                         Log.i("Coords", x + ", " + y);
+
+                        System.out.println("Angle: " + currentAngle);
                     } else {
                         System.out.println("Error: Could not detect");
                     }
@@ -349,6 +374,42 @@ public class MainActivity extends AppCompatActivity {
 
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalysis);
 
+    }
+
+    private float translatePositionToAngle(float posX, float imageWidth) {
+
+        //Gets fraction of horizontal view
+        float xFrac = posX/imageWidth - 0.5f;
+        float angle = (float)Math.atan(xFrac * 0.64f / 0.5f);
+        return (float)(angle * 180 / Math.PI);
+    }
+
+    private void permissionStuff() {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                requestPermissions(new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 666);
+            }
+        }
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED){
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                requestPermissions(new String[]{android.Manifest.permission.BLUETOOTH}, 666);
+            }
+        }
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED){
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                requestPermissions(new String[]{android.Manifest.permission.BLUETOOTH_CONNECT}, 666);
+            }
+        }
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED){
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                requestPermissions(new String[]{android.Manifest.permission.BLUETOOTH_SCAN}, 666);
+            }
+        }
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED){
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                requestPermissions(new String[]{android.Manifest.permission.BLUETOOTH_ADMIN}, 666);
+            }
+        }
     }
 
 

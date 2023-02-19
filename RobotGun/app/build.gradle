@@ -6,9 +6,14 @@ android {
     namespace 'com.example.robotgun'
     compileSdk 33
 
+    aaptOptions {
+        noCompress "tflite"
+        // or noCompress "lite"
+    }
+
     defaultConfig {
         applicationId "com.example.robotgun"
-        minSdk 22
+        minSdk 24
         targetSdk 33
         versionCode 1
         versionName "1.0"
@@ -32,12 +37,16 @@ android {
     }
 }
 
+
+
 dependencies {
 
     implementation 'com.google.mlkit:image-labeling:17.0.7'
     implementation 'com.google.mlkit:face-detection:16.1.5'
     implementation 'com.google.mlkit:face-mesh-detection:16.0.0-beta1'
     implementation 'com.google.mlkit:camera:16.0.0-beta3'
+    implementation 'com.google.mlkit:linkfirebase:17.0.0'
+    implementation 'com.google.mlkit:image-labeling-custom:17.0.1'
 
     def camerax_version = "1.2.1"
 
