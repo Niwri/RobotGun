@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "265385717908",
+    "project_id": "robotgun-64fce",
+    "storage_bucket": "robotgun-64fce.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:265385717908:android:60516c3cf5a6ded8fe8481",
+        "android_client_info": {
+          "package_name": "com.example.robotgun"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "265385717908-mlj7ev24n46bu6kke60l1t16d13e7ltv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_19NKZbyq_tQ5k-BLOQmPNHjswxpz8TQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "265385717908-mlj7ev24n46bu6kke60l1t16d13e7ltv.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
