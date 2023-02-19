@@ -150,6 +150,8 @@ public class MainActivity extends AppCompatActivity {
         shouldRun = true;
         shouldRunDistract = true;
 
+
+
         metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
 
