@@ -153,7 +153,8 @@ public class MainActivity extends AppCompatActivity {
         metrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(metrics);
 
-
+        thread.start();
+        threadTwo.start();
 
     }
 
