@@ -67,6 +67,7 @@ import com.google.mlkit.vision.label.ImageLabeling;
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
@@ -77,13 +78,14 @@ public class MainActivity extends AppCompatActivity {
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private PreviewView previewView;
     private static final String[] CAMERA_PERMISSION = new String[]{android.Manifest.permission.CAMERA};
-    private UUID uuid = new UUID(0, 1);
+    private final UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static final int CAMERA_REQUEST_CODE = 10;
 
     private float currentAngle;
 
     private DetectionTaskCallback<List<FaceMesh>> faceMeshCallBack;
     private ImageCapture imageCapture;
+    private OutputStream outputStream;
     private ActivityMainBinding viewBinding;
     private ImageLabeler labeler;
     private FaceMeshDetector detector;
@@ -95,6 +97,8 @@ public class MainActivity extends AppCompatActivity {
     private Preview preview;
     private ImageView imgFace;
     private Bundle REQUEST_ENABLE_BT;
+    private BluetoothDevice hc05;
+    private BluetoothSocket bluetoothSocket;
 
     private BluetoothAdapter bluetoothAdapter;
 
@@ -154,6 +158,8 @@ public class MainActivity extends AppCompatActivity {
 
         Thread threadTwo = new Thread(distractRunnable);
 
+        Thread threadThree = new Thread(bluetoothStart);
+
         imgFace = findViewById(R.id.imgFace);
 
         imgFace.setBackgroundColor(Color.BLACK);
@@ -163,13 +169,15 @@ public class MainActivity extends AppCompatActivity {
 
         btnStart.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
-                shouldRunFace = !shouldRunFace;
+                shouldRunFace = true;
+                shouldRunPhone = true;
             }
         });
 
         btnStop.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
-                shouldRunPhone = !shouldRunPhone;
+                shouldRunFace = false;
+                shouldRunPhone = false;
             }
         });
 
@@ -184,99 +192,24 @@ public class MainActivity extends AppCompatActivity {
 
         BluetoothManager bluetoothManager = getSystemService(BluetoothManager.class);
         BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
-        if (bluetoothAdapter == null) {
-            // Device doesn't support Bluetooth
-        }
 
-        if (!bluetoothAdapter.isEnabled()) {
-
-            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-                return;
-            }
-
-        }
-        Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-        enableBtIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, REQUEST_ENABLE_BT);
-        ActivityResultLauncher<Intent> startActivityIntent = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                new ActivityResultCallback<ActivityResult>() {
-                    @Override
-                    public void onActivityResult(ActivityResult result) {
-                        // Add same code that you want to add in onActivityResult method
-                    }
-                });
-
-        startActivityIntent.launch(enableBtIntent);
-
-        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
-
-
-        // Register for broadcasts when a device is discovered.
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        registerReceiver(receiver, filter);
-
-        if (pairedDevices.size() > 0) {
-            // There are paired devices. Get the name and address of each paired device.
-            for (BluetoothDevice device : pairedDevices) {
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
-            }
-        }
-
-        int requestCode = 1;
-        Intent discoverableIntent =
-                new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
-        discoverableIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, requestCode);
-        startActivityIntent.launch(discoverableIntent);
+        hc05 = bluetoothAdapter.getRemoteDevice("00:21:09:00:57:0C");
+        System.out.println(bluetoothAdapter.getBondedDevices());
+        System.out.println(hc05.getName());
+        bluetoothSocket = null;
 
         thread.start();
         threadTwo.start();
+        threadThree.start();
     }
 
-    private final BroadcastReceiver receiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                // Discovery has found a device. Get the BluetoothDevice
-                // object and its info from the Intent.
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
-                    return;
-                }
-                String deviceName = device.getName();
-                String deviceHardwareAddress = device.getAddress(); // MAC address
-            }
-        }
-    };
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        // Don't forget to unregister the ACTION_FOUND receiver.
-        unregisterReceiver(receiver);
-    }
 
     private Runnable timerRunnable = new Runnable() {
         @Override
         public void run() {
             if (shouldRun && shouldRunFace) {
                 findFace();
+                findPhone();
             }
             timerHandler.postDelayed(this, 2000);
         }
@@ -286,9 +219,37 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             if (shouldRunDistract && shouldRunPhone) {
-                findPhone();
+
             }
             timerHandler.postDelayed(this, 2000);
+        }
+    };
+
+    private Runnable bluetoothStart = new Runnable() {
+        @Override
+        public void run() {
+            permissionStuff();
+            int counter = 0;
+            System.out.println("no");
+            do {
+                try {
+                    bluetoothSocket = hc05.createInsecureRfcommSocketToServiceRecord(uuid);
+                    bluetoothSocket.connect();
+                    System.out.println("Success!");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                counter++;
+            } while(!bluetoothSocket.isConnected() && counter < 10);
+            System.out.println("Yes");
+            try {
+                outputStream = bluetoothSocket.getOutputStream();
+                outputStream.write("44;".getBytes());
+                System.out.println(bluetoothSocket.isConnected() + "!!!");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
         }
     };
 
@@ -337,8 +298,14 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess(List<ImageLabel> labels) {
                         for (ImageLabel label : labels) {
-                            if (label.getIndex() == 257) {
+                            if (label.getIndex() == 425) {
                                 Log.d("Detect", "Phone found");
+                                String x = currentAngle + ";";
+                                try {
+                                    outputStream.write(x.getBytes());
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
                             }
                         }
                     }
@@ -408,9 +375,16 @@ public class MainActivity extends AppCompatActivity {
 
                             currentAngle = translatePositionToAngle((int) x - imgFace.getWidth() / 2, metrics.widthPixels);
 
+                            String ga = (int)(-1*currentAngle) + ";";
+                            try {
+                                outputStream.write(ga.getBytes());
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+
                             Log.i("Coords", x + ", " + y);
 
-                            System.out.println("Angle: " + currentAngle);
+                            System.out.println("Angle: " + ga);
                         } else {
                             System.out.println("Error: Could not detect");
                         }
@@ -503,123 +477,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private class AcceptThread extends Thread {
-        private final BluetoothServerSocket mmServerSocket;
-
-        public AcceptThread() {
-            // Use a temporary object that is later assigned to mmServerSocket
-            // because mmServerSocket is final.
-            BluetoothServerSocket tmp = null;
-            try {
-                // MY_UUID is the app's UUID string, also used by the client code.
-                tmp = bluetoothAdapter.listenUsingRfcommWithServiceRecord("Test", uuid);
-            } catch (IOException e) {
-                Log.e("Yes", "Socket's listen() method failed", e);
-            }
-            mmServerSocket = tmp;
-        }
-
-        public void run() {
-            BluetoothSocket socket = null;
-            // Keep listening until exception occurs or a socket is returned.
-            while (true) {
-                try {
-                    socket = mmServerSocket.accept();
-                } catch (IOException e) {
-                    Log.e("Yes", "Socket's accept() method failed", e);
-                    break;
-                }
-
-                if (socket != null) {
-                    // A connection was accepted. Perform work associated with
-                    // the connection in a separate thread.
-                    try {
-                        mmServerSocket.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    break;
-                }
-            }
-        }
-
-        // Closes the connect socket and causes the thread to finish.
-        public void cancel() {
-            try {
-                mmServerSocket.close();
-            } catch (IOException e) {
-                Log.e("Yes", "Could not close the connect socket", e);
-            }
-        }
-    }
-
-    private class ConnectThread extends Thread {
-        private final BluetoothSocket mmSocket;
-        private final BluetoothDevice mmDevice;
-        BluetoothSocket tmp = null;
-
-        public ConnectThread(BluetoothDevice device) {
-            // Use a temporary object that is later assigned to mmSocket
-            // because mmSocket is final.
-
-            mmDevice = device;
-
-            try {
-                // Get a BluetoothSocket to connect with the given BluetoothDevice.
-                // MY_UUID is the app's UUID string, also used in the server code.
-
-                tmp = device.createRfcommSocketToServiceRecord(uuid);
-            } catch (IOException e) {
-                Log.e("Yes", "Socket's create() method failed", e);
-            }
-            mmSocket = tmp;
-        }
-
-        public void run() {
-            // Cancel discovery because it otherwise slows down the connection.
-            bluetoothAdapter.cancelDiscovery();
-
-            try {
-                // Connect to the remote device through the socket. This call blocks
-                // until it succeeds or throws an exception.
-                if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
-                    return;
-                }
-                mmSocket.connect();
-            } catch (IOException connectException) {
-                // Unable to connect; close the socket and return.
-                try {
-                    mmSocket.close();
-                } catch (IOException closeException) {
-                    Log.e("Yes", "Could not close the client socket", closeException);
-                }
-                return;
-            }
-
-            // The connection attempt succeeded. Perform work associated with
-            // the connection in a separate thread.
-            manageMyConnectedSocket(mmSocket);
-        }
-
-        // Closes the client socket and causes the thread to finish.
-        public void cancel() {
-            try {
-                mmSocket.close();
-            } catch (IOException e) {
-                Log.e("Yes", "Could not close the client socket", e);
-            }
-        }
-    }
-
-    private void manageMyConnectedSocket(BluetoothSocket mmSocket) {
-    }
 
 
 }
